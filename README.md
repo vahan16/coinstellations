@@ -11,18 +11,34 @@
 </p>
 
 <p align="center">
+  <b>A <a href="https://kotlinlang.org/docs/multiplatform.html">Kotlin Multiplatform</a> app — iOS · Android · Web · Desktop, all from one codebase.</b>
+</p>
+
+<p align="center">
   <a href="https://coinstats.app/api/"><img alt="Data: CoinStats API" src="https://img.shields.io/badge/data-CoinStats%20API-21D07A"></a>
   <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white">
+  <img alt="Kotlin Multiplatform" src="https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white">
   <img alt="Compose Multiplatform" src="https://img.shields.io/badge/Compose%20Multiplatform-1.11.1-4285F4">
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Android%20·%20iOS%20·%20Desktop%20·%20Web-8AB4FF">
+  <img alt="Platforms" src="https://img.shields.io/badge/iOS%20·%20Android%20·%20Web%20·%20Desktop-included-8AB4FF">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
 <p align="center">
-  <b><a href="https://vahan16.github.io/coinstellations/">▶ Try the live web demo</a></b> &nbsp;·&nbsp; one Kotlin codebase → Android, iOS, Desktop &amp; Web
+  <b><a href="https://vahan16.github.io/coinstellations/">▶ Try the live web demo</a></b> &nbsp;·&nbsp; built with Kotlin Multiplatform &amp; Compose
 </p>
 
 ---
+
+## 🧩 One codebase, every platform
+
+**Coinstellations is a [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html) app.** The entire UI and logic live in `commonMain` and ship natively to **iOS, Android, Web, and Desktop** — all four targets are included in this repo and verified building:
+
+| Platform | Kotlin source set | Run it | Status |
+|---|---|---|---|
+| 🍎 **iOS** | `iosMain` + `iosApp/` (SwiftUI host) | open `iosApp/` in Xcode ▸ Run | ✅ builds (simulator) |
+| 🤖 **Android** | `androidMain` | `./gradlew :composeApp:installDebug` | ✅ APK assembles |
+| 🌐 **Web** (Wasm) | `wasmJsMain` | `./gradlew :composeApp:wasmJsBrowserDevelopmentRun` | ✅ [live demo](https://vahan16.github.io/coinstellations/) |
+| 🖥️ **Desktop** (JVM) | `desktopMain` | `./gradlew :composeApp:run` | ✅ runs + tests pass |
 
 ## ✨ What it does
 
