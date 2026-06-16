@@ -27,6 +27,10 @@
   <b><a href="https://vahan16.github.io/coinstellations/">▶ Try the live web demo</a></b> &nbsp;·&nbsp; built with Kotlin Multiplatform &amp; Compose
 </p>
 
+<p align="center">
+  <img src="docs/demo.gif" alt="Coinstellations animated — twinkling stars, parallax tilt and a shooting star" width="82%"/>
+</p>
+
 ---
 
 ## 🧩 One codebase, every platform
@@ -44,16 +48,24 @@
 
 - **A night sky of the market.** The top coins are laid out as a golden-angle galaxy — the biggest market caps sit near the centre as the brightest stars.
 - **Live, hand-drawn animation.** Stars twinkle, drift and link into constellations on a Compose `Canvas` driven by a `withFrameNanos` clock — no images, no chart library.
+- **Interactive 3D parallax.** Move the cursor or drag a finger and the sky tilts — large-cap (near) stars shift more than distant ones and the star under your pointer flares. Leave it alone and it drifts on its own.
 - **Shooting stars for big movers.** The most volatile coins streak across the sky.
 - **Tap any star** for a detail sheet: price, 1h / 24h / 7d change, market cap, volume, supply, a price **sparkline** (24h → all-time) and project links.
 - **Timeframe toggle (1h / 24h / 7d)** instantly re-colours and re-sizes the whole sky, and the header shows the market "weather" (the average move).
 - **Runs instantly with bundled demo data** — no key needed (great for the web demo). Add a free CoinStats key in **Settings** for live prices.
+
+## 📸 Screenshots
+
+| Desktop | Mobile |
+|:--:|:--:|
+| <img src="docs/hero.png" alt="Coinstellations on desktop" width="440"/> | <img src="docs/mobile.png" alt="Coinstellations on mobile" width="200"/> |
 
 ## 🛰️ How market data becomes a sky
 
 | Star property | Driven by |
 |---|---|
 | Size & brightness | Market capitalisation (`marketCap`) |
+| 3D parallax depth | Market cap — big caps sit "nearer" and shift more as you tilt |
 | Colour (green → red) | Price change for the selected timeframe |
 | Twinkle speed | Volatility (absolute price change) |
 | Position | Golden-angle spiral by market-cap rank |

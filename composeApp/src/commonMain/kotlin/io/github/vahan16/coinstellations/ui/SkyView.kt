@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextStyle
@@ -43,17 +44,29 @@ private class Star(
     val color: Color,
     val twinkleSpeed: Float,
     val twinklePhase: Float,
+    val depth: Float,         // 0 (far) .. 1 (near) — drives parallax
     val major: Boolean,       // draw a symbol label
 )
 
-private class BgStar(val nx: Float, val ny: Float, val r: Float, val baseAlpha: Float, val speed: Float, val phase: Float)
+private class BgStar(val nx: Float, val ny: Float, val r: Float, val baseAlpha: Float, val speed: Float, val phase: Float, val depth: Float)
 
 private class Shooting(var x: Float, var y: Float, val vx: Float, val vy: Float, var life: Float, val maxLife: Float, val len: Float, val color: Color)
 
+/** Pointer-driven parallax: the whole field tilts toward the cursor/finger. */
+private class Tilt {
+    var targetX = 0f; var targetY = 0f
+    var x = 0f; var y = 0f
+    var lastInputSec = -10f
+}
+
 /**
  * The market as a night sky. Each coin is a star (size = market cap, color = move,
- * twinkle = volatility); nearby stars are linked into constellations and big movers
- * streak across as shooting stars. Tap a star to inspect it.
+ * twinkle = volatility); nearby stars link into constellations and big movers
+ * streak across as shooting stars.
+ *
+ * Interaction: move the cursor / drag a finger and the sky tilts in 3D — near
+ * (large-cap) stars parallax more than far ones; the hovered star flares. Tap a
+ * star to inspect it. When idle, the field drifts on its own.
  */
 @Composable
 fun SkyView(
@@ -65,18 +78,15 @@ fun SkyView(
     var sizePx by remember { mutableStateOf(Size.Zero) }
     var nowSec by remember { mutableStateOf(0f) }
     val textMeasurer = rememberTextMeasurer()
+    val tilt = remember { Tilt() }
 
     val bgStars = remember { buildBackgroundStars(count = 170) }
-
     val stars = remember(coins, timeframe, sizePx) {
         if (sizePx.minDimension <= 0f) emptyList() else buildStars(coins, timeframe, sizePx)
     }
     val edges = remember(stars) { buildEdges(stars) }
     val shooting = remember { mutableListOf<Shooting>() }
-
-    val topMover = remember(coins, timeframe) {
-        coins.maxByOrNull { abs(it.changeFor(timeframe) ?: 0.0) }
-    }
+    val topMover = remember(coins, timeframe) { coins.maxByOrNull { abs(it.changeFor(timeframe) ?: 0.0) } }
 
     LaunchedEffect(sizePx) {
         if (sizePx.minDimension <= 0f) return@LaunchedEffect
@@ -90,12 +100,18 @@ fun SkyView(
                 last = t
                 nowSec += dt
 
+                // Parallax: follow the pointer, or drift gently when idle.
+                val idle = nowSec - tilt.lastInputSec > 2.5f
+                val desiredX = if (idle) sin(nowSec * 0.18f) * 0.55f else tilt.targetX
+                val desiredY = if (idle) cos(nowSec * 0.13f) * 0.35f else tilt.targetY
+                val k = min(1f, dt * 3.5f)
+                tilt.x += (desiredX - tilt.x) * k
+                tilt.y += (desiredY - tilt.y) * k
+
                 val iter = shooting.iterator()
                 while (iter.hasNext()) {
                     val s = iter.next()
-                    s.x += s.vx * dt
-                    s.y += s.vy * dt
-                    s.life -= dt
+                    s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt
                     if (s.life <= 0f) iter.remove()
                 }
                 spawnAcc += dt
@@ -110,53 +126,64 @@ fun SkyView(
     Canvas(
         modifier = modifier
             .onSizeChanged { sizePx = Size(it.width.toFloat(), it.height.toFloat()) }
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val p = event.changes.lastOrNull()?.position
+                        if (p != null && size.width > 0 && size.height > 0) {
+                            tilt.targetX = ((p.x / size.width) * 2f - 1f).coerceIn(-1f, 1f)
+                            tilt.targetY = ((p.y / size.height) * 2f - 1f).coerceIn(-1f, 1f)
+                            tilt.lastInputSec = nowSec
+                        }
+                    }
+                }
+            }
             .pointerInput(stars, sizePx) {
-                detectTapGestures { pos -> pickStar(stars, pos, sizePx)?.let(onSelect) }
+                detectTapGestures { pos ->
+                    pickStar(stars, pos, sizePx, tilt.x, tilt.y)?.let(onSelect)
+                }
             }
     ) {
-        val t = nowSec // subscribe to the animation clock
+        nowSec // subscribe to the animation clock
         val w = size.width
         val h = size.height
         val minDim = size.minDimension
+        val shift = minDim * 0.05f
+        val active = nowSec - tilt.lastInputSec <= 2.5f
+        val pointer = Offset((tilt.targetX + 1f) / 2f * w, (tilt.targetY + 1f) / 2f * h)
 
         // Deep-space gradient
         drawRect(Brush.verticalGradient(listOf(SpaceTop, SpaceMid, SpaceBottom)))
-        // Faint nebula glow
-        val nebula = Offset(w * 0.72f, h * 0.22f)
+        val nebula = Offset(w * 0.72f + tilt.x * shift, h * 0.22f + tilt.y * shift)
         drawCircle(
-            brush = Brush.radialGradient(
-                listOf(Accent.copy(alpha = 0.12f), Color.Transparent),
-                center = nebula, radius = minDim * 0.7f,
-            ),
+            brush = Brush.radialGradient(listOf(Accent.copy(alpha = 0.12f), Color.Transparent), center = nebula, radius = minDim * 0.7f),
             radius = minDim * 0.7f, center = nebula,
         )
 
-        // Background starfield
+        // Background starfield (far → minimal parallax)
         bgStars.forEach { b ->
-            val a = (b.baseAlpha * (0.55f + 0.45f * sin(t * b.speed + b.phase))).coerceIn(0f, 1f)
-            drawCircle(Color.White.copy(alpha = a), b.r, Offset(b.nx * w, b.ny * h))
+            val a = (b.baseAlpha * (0.55f + 0.45f * sin(nowSec * b.speed + b.phase))).coerceIn(0f, 1f)
+            drawCircle(Color.White.copy(alpha = a), b.r, Offset(b.nx * w + tilt.x * b.depth * shift, b.ny * h + tilt.y * b.depth * shift))
         }
 
-        // Constellation lines
+        // Constellation lines (between parallax-shifted stars)
         edges.forEach { (a, b) ->
             drawLine(
                 color = Accent.copy(alpha = 0.10f),
-                start = Offset(a.nx * w, a.ny * h),
-                end = Offset(b.nx * w, b.ny * h),
+                start = Offset(a.nx * w + tilt.x * a.depth * shift, a.ny * h + tilt.y * a.depth * shift),
+                end = Offset(b.nx * w + tilt.x * b.depth * shift, b.ny * h + tilt.y * b.depth * shift),
                 strokeWidth = 1f,
             )
         }
 
-        // Shooting stars (tail -> head)
+        // Shooting stars
         shooting.forEach { s ->
             val k = (s.life / s.maxLife).coerceIn(0f, 1f)
             val dir = hypot(s.vx, s.vy).coerceAtLeast(1f)
             val tail = Offset(s.x - s.vx / dir * s.len, s.y - s.vy / dir * s.len)
             drawLine(
-                brush = Brush.linearGradient(
-                    listOf(Color.Transparent, s.color.copy(alpha = 0.9f * k)),
-                    start = tail, end = Offset(s.x, s.y),
-                ),
+                brush = Brush.linearGradient(listOf(Color.Transparent, s.color.copy(alpha = 0.9f * k)), start = tail, end = Offset(s.x, s.y)),
                 start = tail, end = Offset(s.x, s.y), strokeWidth = 2f,
             )
             drawCircle(s.color.copy(alpha = k), 2.2f, Offset(s.x, s.y))
@@ -164,27 +191,31 @@ fun SkyView(
 
         // Coin stars
         stars.forEach { star ->
-            val pos = Offset(star.nx * w, star.ny * h)
-            val tw = 0.72f + 0.28f * sin(t * star.twinkleSpeed + star.twinklePhase)
+            val pos = Offset(star.nx * w + tilt.x * star.depth * shift, star.ny * h + tilt.y * star.depth * shift)
+            var tw = 0.72f + 0.28f * sin(nowSec * star.twinkleSpeed + star.twinklePhase)
+            var rad = star.radiusPx
+            if (active) {
+                val d = hypot(pointer.x - pos.x, pointer.y - pos.y)
+                val reach = star.radiusPx * 4.5f + 28f
+                if (d < reach) {
+                    val boost = 1f - d / reach
+                    tw = (tw + boost * 0.6f).coerceAtMost(1.25f)
+                    rad = star.radiusPx * (1f + boost * 0.35f)
+                }
+            }
             drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(star.color.copy(alpha = 0.5f * tw), Color.Transparent),
-                    center = pos, radius = star.radiusPx * 3.4f,
-                ),
-                radius = star.radiusPx * 3.4f, center = pos,
+                brush = Brush.radialGradient(listOf(star.color.copy(alpha = 0.5f * tw), Color.Transparent), center = pos, radius = rad * 3.4f),
+                radius = rad * 3.4f, center = pos,
             )
-            drawCircle(star.color.copy(alpha = (0.85f * tw + 0.15f).coerceIn(0f, 1f)), star.radiusPx, pos)
-            drawCircle(Color.White.copy(alpha = 0.45f * tw), star.radiusPx * 0.42f, pos)
+            drawCircle(star.color.copy(alpha = (0.85f * tw + 0.15f).coerceIn(0f, 1f)), rad, pos)
+            drawCircle(Color.White.copy(alpha = 0.45f * tw), rad * 0.42f, pos)
 
             if (star.major) {
                 val layout = textMeasurer.measure(
                     star.coin.symbol,
                     style = TextStyle(color = OnSurface.copy(alpha = 0.82f), fontSize = 11.sp, fontWeight = FontWeight.Medium),
                 )
-                drawText(
-                    layout,
-                    topLeft = Offset(pos.x - layout.size.width / 2f, pos.y + star.radiusPx + 3.dp.toPx()),
-                )
+                drawText(layout, topLeft = Offset(pos.x - layout.size.width / 2f, pos.y + rad + 3.dp.toPx()))
             }
         }
     }
@@ -216,6 +247,7 @@ private fun buildStars(coins: List<Coin>, tf: Timeframe, size: Size): List<Star>
             color = changeColor(change),
             twinkleSpeed = 0.6f + min(3.0, abs(change) / 3.0).toFloat(),
             twinklePhase = rnd.nextFloat() * 6.2832f,
+            depth = 0.3f + 0.7f * mcNorm,
             major = i < 12,
         )
     }
@@ -250,6 +282,7 @@ private fun buildBackgroundStars(count: Int): List<BgStar> {
             baseAlpha = 0.18f + rnd.nextFloat() * 0.5f,
             speed = 0.3f + rnd.nextFloat() * 1.3f,
             phase = rnd.nextFloat() * 6.2832f,
+            depth = 0.04f + rnd.nextFloat() * 0.18f,
         )
     }
 }
@@ -259,7 +292,7 @@ private fun spawnShooting(size: Size, rnd: Random, warm: Boolean): Shooting {
     val startX = if (fromLeft) -20f else size.width * rnd.nextFloat()
     val startY = size.height * rnd.nextFloat() * 0.5f
     val speed = size.minDimension * (0.5f + rnd.nextFloat() * 0.4f)
-    val angle = 0.35f + rnd.nextFloat() * 0.3f // gently downward-right
+    val angle = 0.35f + rnd.nextFloat() * 0.3f
     val life = 0.9f + rnd.nextFloat() * 0.5f
     return Shooting(
         x = startX, y = startY,
@@ -270,16 +303,16 @@ private fun spawnShooting(size: Size, rnd: Random, warm: Boolean): Shooting {
     )
 }
 
-private fun pickStar(stars: List<Star>, pos: Offset, size: Size): Coin? {
+private fun pickStar(stars: List<Star>, pos: Offset, size: Size, tiltX: Float, tiltY: Float): Coin? {
     if (stars.isEmpty() || size.minDimension <= 0f) return null
+    val shift = size.minDimension * 0.05f
     var best: Star? = null
     var bestD = Float.MAX_VALUE
     for (s in stars) {
-        val sx = s.nx * size.width
-        val sy = s.ny * size.height
+        val sx = s.nx * size.width + tiltX * s.depth * shift
+        val sy = s.ny * size.height + tiltY * s.depth * shift
         val d = hypot(pos.x - sx, pos.y - sy)
-        val hit = s.radiusPx + 16f
-        if (d <= hit && d < bestD) { bestD = d; best = s }
+        if (d <= s.radiusPx + 16f && d < bestD) { bestD = d; best = s }
     }
     return best?.coin
 }
