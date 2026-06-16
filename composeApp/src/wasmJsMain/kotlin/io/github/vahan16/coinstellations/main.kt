@@ -1,0 +1,11 @@
+package io.github.vahan16.coinstellations
+
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.window.ComposeViewport
+import kotlinx.browser.document
+
+@OptIn(ExperimentalComposeUiApi::class)
+fun main() {
+    val body = document.body ?: return
+    ComposeViewport(body) { App() }
+}

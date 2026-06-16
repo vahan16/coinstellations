@@ -1,0 +1,27 @@
+# Gradle
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local config
+local.properties
+*.local
+
+# IDE
+.idea/
+.fleet/
+*.iml
+.kotlin/
+
+# macOS
+.DS_Store
+
+# Kotlin/Native & Compose web
+kotlin-js-store/
+
+# Xcode
+iosApp/build/
+iosApp/Pods/
+**/xcuserdata/
+*.xcworkspace/xcuserdata/
