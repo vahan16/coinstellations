@@ -1,8 +1,18 @@
 package io.github.vahan16.coinstellations.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -10,7 +20,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -40,6 +52,11 @@ import kotlin.random.Random
 private const val GOLDEN_ANGLE = 2.399963f // radians, ~137.5°
 private const val LAYOUT_R = 0.47f          // galaxy radius as fraction of min dimension
 private const val AUTO_SPIN = 0.05f         // idle rotation, radians/sec
+private const val MIN_SCALE = 0.35f
+private const val MAX_SCALE = 4f
+private const val DEFAULT_SCALE = 0.7f
+private const val ROT_EASE = 5f   // how quickly rotation catches up to input (lower = more lag)
+private const val ZOOM_EASE = 6f  // how quickly zoom catches up to input
 
 private class Star(
     val coin: Coin,
@@ -61,7 +78,8 @@ private class Shooting(var x: Float, var y: Float, val vx: Float, val vy: Float,
 private class Sky {
     var targetX = 0f; var targetY = 0f // parallax target (-1..1)
     var x = 0f; var y = 0f             // smoothed parallax
-    var rot = 0f                       // galaxy rotation (radians)
+    var rot = 0f; var rotTarget = 0f                       // galaxy rotation (radians), eased
+    var scale = DEFAULT_SCALE; var scaleTarget = DEFAULT_SCALE // zoom, eased
     var lastInputSec = -10f
 }
 
@@ -106,7 +124,10 @@ fun SkyView(
                 last = t
                 nowSec += dt
 
-                sky.rot += AUTO_SPIN * dt // gentle idle spin (drag adds on top)
+                // Eased rotation + zoom — input nudges the target, the value glides to it.
+                sky.rotTarget += AUTO_SPIN * dt // gentle idle spin (drag adds on top)
+                sky.rot += (sky.rotTarget - sky.rot) * min(1f, dt * ROT_EASE)
+                sky.scale += (sky.scaleTarget - sky.scale) * min(1f, dt * ZOOM_EASE)
 
                 val idle = nowSec - sky.lastInputSec > 2.5f
                 val desiredX = if (idle) sin(nowSec * 0.18f) * 0.5f else sky.targetX
@@ -130,8 +151,9 @@ fun SkyView(
         }
     }
 
-    Canvas(
-        modifier = modifier
+    Box(modifier) {
+        Canvas(
+            modifier = Modifier.fillMaxSize()
             .onSizeChanged { sizePx = Size(it.width.toFloat(), it.height.toFloat()) }
             // hover → parallax (ignore while a finger/button is pressed; that's a rotate)
             .pointerInput(Unit) {
@@ -139,6 +161,11 @@ fun SkyView(
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val c = event.changes.lastOrNull() ?: continue
+                        if (c.scrollDelta != Offset.Zero) { // mouse wheel / trackpad → zoom (eased)
+                            sky.scaleTarget = (sky.scaleTarget * (1f - c.scrollDelta.y * 0.05f)).coerceIn(MIN_SCALE, MAX_SCALE)
+                            sky.lastInputSec = nowSec
+                            c.consume()
+                        }
                         if (!c.pressed && size.width > 0 && size.height > 0) {
                             sky.targetX = ((c.position.x / size.width) * 2f - 1f).coerceIn(-1f, 1f)
                             sky.targetY = ((c.position.y / size.height) * 2f - 1f).coerceIn(-1f, 1f)
@@ -147,20 +174,21 @@ fun SkyView(
                     }
                 }
             }
-            // drag → rotate the galaxy by the swept angle around the centre
+            // drag → rotate (one finger) · pinch → zoom · twist → rotate (two fingers)
             .pointerInput(Unit) {
-                detectDragGestures { change, _ ->
-                    change.consume()
+                detectTransformGestures { centroid, pan, zoomChange, rotationDeg ->
                     val c = Offset(size.width / 2f, size.height / 2f)
-                    val prev = change.previousPosition - c
-                    val cur = change.position - c
-                    if (prev.getDistance() > 6f && cur.getDistance() > 6f) {
+                    if (zoomChange != 1f) sky.scaleTarget = (sky.scaleTarget * zoomChange).coerceIn(MIN_SCALE, MAX_SCALE)
+                    if (rotationDeg != 0f) sky.rotTarget += rotationDeg * (PI.toFloat() / 180f)
+                    val cur = centroid - c
+                    val prev = (centroid - pan) - c
+                    if (cur.getDistance() > 8f && prev.getDistance() > 8f) {
                         var da = atan2(cur.y, cur.x) - atan2(prev.y, prev.x)
                         if (da > PI) da -= (2 * PI).toFloat()
                         if (da < -PI) da += (2 * PI).toFloat()
-                        sky.rot += da
-                        sky.lastInputSec = nowSec
+                        sky.rotTarget += da
                     }
+                    sky.lastInputSec = nowSec
                 }
             }
             .pointerInput(stars, sizePx) {
@@ -173,7 +201,7 @@ fun SkyView(
         val minDim = size.minDimension
         val cx = w / 2f
         val cy = h / 2f
-        val layoutR = minDim * LAYOUT_R
+        val layoutR = minDim * LAYOUT_R * sky.scale
         val shift = minDim * 0.05f
         val active = nowSec - sky.lastInputSec <= 2.5f
         val pointer = Offset((sky.targetX + 1f) / 2f * w, (sky.targetY + 1f) / 2f * h)
@@ -218,14 +246,15 @@ fun SkyView(
         stars.forEachIndexed { idx, star ->
             val p = pos[idx]
             var tw = 0.72f + 0.28f * sin(nowSec * star.twinkleSpeed + star.twinklePhase)
-            var rad = star.radiusPx
+            val base = star.radiusPx * sky.scale
+            var rad = base
             if (active) {
                 val d = hypot(pointer.x - p.x, pointer.y - p.y)
-                val reach = star.radiusPx * 4.5f + 28f
+                val reach = base * 4.5f + 28f
                 if (d < reach) {
                     val boost = 1f - d / reach
                     tw = (tw + boost * 0.6f).coerceAtMost(1.25f)
-                    rad = star.radiusPx * (1f + boost * 0.35f)
+                    rad = base * (1f + boost * 0.35f)
                 }
             }
             drawCircle(Brush.radialGradient(listOf(star.color.copy(alpha = 0.5f * tw), Color.Transparent), center = p, radius = rad * 3.4f), radius = rad * 3.4f, center = p)
@@ -237,6 +266,31 @@ fun SkyView(
                 drawText(layout, topLeft = Offset(p.x - layout.size.width / 2f, p.y + rad + 3.dp.toPx()))
             }
         }
+    }
+
+        ZoomControls(
+            onIn = { sky.scaleTarget = (sky.scaleTarget * 1.4f).coerceIn(MIN_SCALE, MAX_SCALE); sky.lastInputSec = nowSec },
+            onOut = { sky.scaleTarget = (sky.scaleTarget / 1.4f).coerceIn(MIN_SCALE, MAX_SCALE); sky.lastInputSec = nowSec },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+        )
+    }
+}
+
+@Composable
+private fun ZoomControls(onIn: () -> Unit, onOut: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ZoomButton("+", onIn)
+        ZoomButton("−", onOut)
+    }
+}
+
+@Composable
+private fun ZoomButton(label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f)).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = OnSurface, fontSize = 20.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -262,7 +316,7 @@ private fun buildStars(coins: List<Coin>, tf: Timeframe, size: Size): List<Star>
             twinkleSpeed = 0.6f + min(3.0, abs(change) / 3.0).toFloat(),
             twinklePhase = rnd.nextFloat() * 6.2832f,
             depth = 0.3f + 0.7f * mcNorm,
-            major = i < 12,
+            major = i < 8,
         )
     }
 }
@@ -325,7 +379,7 @@ private fun pickStar(stars: List<Star>, tap: Offset, size: Size, sky: Sky): Coin
     val minDim = size.minDimension
     val cx = size.width / 2f
     val cy = size.height / 2f
-    val layoutR = minDim * LAYOUT_R
+    val layoutR = minDim * LAYOUT_R * sky.scale
     val shift = minDim * 0.05f
     var best: Star? = null
     var bestD = Float.MAX_VALUE
@@ -334,7 +388,7 @@ private fun pickStar(stars: List<Star>, tap: Offset, size: Size, sky: Sky): Coin
         val sx = cx + cos(a) * s.radFrac * layoutR + sky.x * s.depth * shift
         val sy = cy + sin(a) * s.radFrac * layoutR + sky.y * s.depth * shift
         val d = hypot(tap.x - sx, tap.y - sy)
-        if (d <= s.radiusPx + 16f && d < bestD) { bestD = d; best = s }
+        if (d <= s.radiusPx * sky.scale + 16f && d < bestD) { bestD = d; best = s }
     }
     return best?.coin
 }
