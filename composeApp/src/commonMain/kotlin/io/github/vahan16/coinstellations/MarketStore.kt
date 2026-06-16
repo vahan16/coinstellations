@@ -40,7 +40,7 @@ data class SkyState(
     val timeframe: Timeframe = Timeframe.DAY,
     val query: String = "",
     val currency: String = "USD",
-    val starCount: Int = 50,
+    val starCount: Int = 100,
     val selected: Coin? = null,
     val chart: ChartState = ChartState(),
     val hasApiKey: Boolean = false,

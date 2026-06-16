@@ -1,6 +1,7 @@
 package io.github.vahan16.coinstellations.data
 
 import kotlin.math.max
+import kotlin.math.pow
 import kotlin.random.Random
 
 /**
@@ -31,7 +32,7 @@ object DemoData {
         websiteUrl = web, twitterUrl = twitter,
     )
 
-    val coins: List<Coin> = listOf(
+    private val topCoins: List<Coin> = listOf(
         c("bitcoin", "Bitcoin", "BTC", 1, 68120.0, 1_345_000_000_000.0, 32_400_000_000.0, 19.74e6, 21e6, 0.12, 1.42, -2.10, "https://bitcoin.org", "https://twitter.com/bitcoin"),
         c("ethereum", "Ethereum", "ETH", 2, 3552.0, 427_000_000_000.0, 16_800_000_000.0, 120.2e6, 120.2e6, 0.20, 2.05, 3.40, "https://ethereum.org", "https://twitter.com/ethereum"),
         c("tether", "Tether", "USDT", 3, 1.0, 112_000_000_000.0, 48_000_000_000.0, 112e9, 112e9, 0.00, 0.01, -0.02),
@@ -63,6 +64,54 @@ object DemoData {
         c("pepe", "Pepe", "PEPE", 29, 0.0000118, 4_900_000_000.0, 1_500_000_000.0, 415e12, 421e12, 2.10, 18.30, 27.50),
         c("render-token", "Render", "RNDR", 30, 7.4, 2_900_000_000.0, 170_000_000.0, 388e6, 531e6, 0.65, -4.10, 9.80),
     )
+
+    /** A recognisable long tail so the demo sky is dense even without an API key. */
+    private val extraDefs: List<Pair<String, String>> = listOf(
+        "Sui" to "SUI", "Sei" to "SEI", "Aave" to "AAVE", "Maker" to "MKR", "Lido DAO" to "LDO",
+        "THORChain" to "RUNE", "Algorand" to "ALGO", "Fantom" to "FTM", "Flow" to "FLOW", "MultiversX" to "EGLD",
+        "Tezos" to "XTZ", "Theta" to "THETA", "Axie Infinity" to "AXS", "The Sandbox" to "SAND", "Decentraland" to "MANA",
+        "Chiliz" to "CHZ", "Gala" to "GALA", "Enjin" to "ENJ", "Curve DAO" to "CRV", "Synthetix" to "SNX",
+        "Compound" to "COMP", "dYdX" to "DYDX", "Kava" to "KAVA", "Zcash" to "ZEC", "Dash" to "DASH",
+        "EOS" to "EOS", "Neo" to "NEO", "IOTA" to "IOTA", "Kusama" to "KSM", "PancakeSwap" to "CAKE",
+        "1inch" to "1INCH", "Basic Attention" to "BAT", "Zilliqa" to "ZIL", "Quant" to "QNT", "Fetch.ai" to "FET",
+        "The Graph" to "GRT", "Immutable" to "IMX", "Worldcoin" to "WLD", "Jupiter" to "JUP", "Pyth Network" to "PYTH",
+        "Celestia" to "TIA", "Stacks" to "STX", "Ordinals" to "ORDI", "Bonk" to "BONK", "dogwifhat" to "WIF",
+        "Floki" to "FLOKI", "STEPN" to "GMT", "ApeCoin" to "APE", "Loopring" to "LRC", "Oasis" to "ROSE",
+        "Mina" to "MINA", "Arweave" to "AR", "Helium" to "HNT", "Conflux" to "CFX", "Kaspa" to "KAS",
+        "Nexo" to "NEXO", "Gnosis" to "GNO", "Pendle" to "PENDLE", "Jito" to "JTO", "Blur" to "BLUR",
+        "Ethereum Name Service" to "ENS", "Mask Network" to "MASK", "WOO" to "WOO", "Moonbeam" to "GLMR", "Astar" to "ASTR",
+        "Osmosis" to "OSMO", "Celo" to "CELO", "Ankr" to "ANKR", "Audius" to "AUDIO", "Band Protocol" to "BAND",
+        "Ocean Protocol" to "OCEAN", "Frax Share" to "FXS", "Rocket Pool" to "RPL", "Ondo" to "ONDO", "ether.fi" to "ETHFI",
+        "Starknet" to "STRK", "Manta Network" to "MANTA", "Dymension" to "DYM", "Wormhole" to "W", "Ethena" to "ENA",
+        "Omni Network" to "OMNI", "Saga" to "SAGA", "Bittensor" to "TAO", "Akash" to "AKT", "SafePal" to "SFP",
+    )
+
+    private fun extras(): List<Coin> {
+        var mc = 2_050_000_000.0
+        return extraDefs.mapIndexed { i, (name, sym) ->
+            val rnd = Random(sym.hashCode().toLong() xor 0x5DEECE66DL)
+            mc *= 0.90 + rnd.nextDouble() * 0.075 // gently decreasing market cap
+            val price = 10.0.pow(rnd.nextInt(-4, 3)) * (1.0 + rnd.nextDouble() * 8.0)
+            val avail = (mc / price).coerceAtLeast(1.0)
+            Coin(
+                id = sym.lowercase(),
+                name = name,
+                symbol = sym,
+                rank = 30 + i + 1,
+                price = price,
+                marketCap = mc,
+                volume = mc * (0.02 + rnd.nextDouble() * 0.18),
+                availableSupply = avail,
+                totalSupply = avail * (1.0 + rnd.nextDouble() * 1.4),
+                priceChange1h = (rnd.nextDouble() - 0.5) * 3.0,
+                priceChange1d = (rnd.nextDouble() - 0.46) * 15.0,
+                priceChange1w = (rnd.nextDouble() - 0.46) * 30.0,
+            )
+        }
+    }
+
+    /** Curated majors + a generated long tail — ~110 coins so the sky is full. */
+    val coins: List<Coin> = topCoins + extras()
 
     /** Deterministic synthetic price history for the detail chart in demo mode. */
     fun chart(coin: Coin, period: String): List<ChartPoint> {

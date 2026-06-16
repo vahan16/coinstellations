@@ -21,7 +21,7 @@ class AppSettings(private val settings: Settings = Settings()) {
         set(value) = settings.putString(KEY_CURRENCY, value)
 
     var bubbleCount: Int
-        get() = settings.getInt(KEY_COUNT, 50)
+        get() = settings.getInt(KEY_COUNT, 100)
         set(value) = settings.putInt(KEY_COUNT, value)
 
     val hasApiKey: Boolean get() = apiKey != null

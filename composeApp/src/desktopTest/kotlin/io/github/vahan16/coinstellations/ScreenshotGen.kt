@@ -51,10 +51,10 @@ class ScreenshotGen {
             .also { it.mkdirs() }
 
     @Composable
-    private fun Scene(timeframe: Timeframe, withHeader: Boolean) {
+    private fun Scene(timeframe: Timeframe, withHeader: Boolean, count: Int) {
         AppTheme {
             Box(Modifier.fillMaxSize().background(SpaceBottom)) {
-                SkyView(DemoData.coins.take(60), timeframe, Modifier.fillMaxSize()) {}
+                SkyView(DemoData.coins.take(count), timeframe, Modifier.fillMaxSize()) {}
                 if (withHeader) {
                     Column(
                         Modifier.fillMaxWidth()
@@ -109,16 +109,16 @@ class ScreenshotGen {
         if (System.getenv("SCREENSHOT_DIR").isNullOrBlank()) return
 
         // --- Static stills: render a short sequence, keep a settled frame ---
-        val hero = frames(1600, 1000, 2f, 26, 50) { Scene(Timeframe.DAY, withHeader = true) }
+        val hero = frames(1600, 1000, 2f, 26, 50) { Scene(Timeframe.DAY, withHeader = true, count = 100) }
         File(outDir, "hero.png").writeBytes(hero.last())
         println("wrote ${outDir.resolve("hero.png")} (${hero.last().size / 1024} KB)")
 
-        val mobile = frames(760, 1640, 2f, 26, 50) { Scene(Timeframe.WEEK, withHeader = true) }
+        val mobile = frames(760, 1640, 2f, 26, 50) { Scene(Timeframe.WEEK, withHeader = true, count = 85) }
         File(outDir, "mobile.png").writeBytes(mobile.last())
         println("wrote ${outDir.resolve("mobile.png")} (${mobile.last().size / 1024} KB)")
 
         // --- Animated GIF of the living sky (twinkle + a shooting star) ---
-        val gifFrames = frames(640, 380, 1.5f, 44, 60) { Scene(Timeframe.DAY, withHeader = false) }
+        val gifFrames = frames(640, 380, 1.5f, 44, 60) { Scene(Timeframe.DAY, withHeader = false, count = 75) }
         writeGif(File(outDir, "demo.gif"), gifFrames, delayMs = 60)
         println("wrote ${outDir.resolve("demo.gif")} (${File(outDir, "demo.gif").length() / 1024} KB)")
     }
