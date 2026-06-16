@@ -6,6 +6,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import kotlin.math.abs
 
 // --- Cosmic palette ---
 val SpaceTop = Color(0xFF0C1230)
@@ -16,18 +17,20 @@ val OnSurface = Color(0xFFE7ECFF)
 val Muted = Color(0xFF8A93B8)
 val Accent = Color(0xFF8AB4FF)
 
-val UpColor = Color(0xFF21D07A)
-val DownColor = Color(0xFFFF5C6C)
-val StarWarm = Color(0xFFFFE3A3) // gainers glow warm gold
-val StarCool = Color(0xFF8FB8FF) // losers glow cool blue
+val UpColor = Color(0xFF00E676)   // vivid green — gains
+val DownColor = Color(0xFFFF2D55)  // vivid red — losses
+val StarWarm = Color(0xFFFFE3A3) // shooting-star glow (warm gold)
+val StarCool = Color(0xFF8FB8FF) // shooting-star glow (cool blue)
 val StarNeutral = Color(0xFFE9EEFF)
 
-/** Map a price-change % to a star tint: warm/green up, cool/red down. */
+/** Map a price-change % to a colour: vivid green for gains, vivid red for losses. */
 fun changeColor(pct: Double?): Color {
     val p = (pct ?: 0.0).toFloat()
-    val t = (p / 8f).coerceIn(-1f, 1f)
-    return if (t >= 0f) lerp(StarNeutral, UpColor, t * 0.85f)
-    else lerp(StarNeutral, DownColor, -t * 0.85f)
+    if (p == 0f) return StarNeutral
+    // Reach full saturation by ~±5%; even small moves stay clearly green/red.
+    val t = (abs(p) / 5f).coerceIn(0f, 1f)
+    val strength = 0.55f + 0.45f * t
+    return lerp(StarNeutral, if (p > 0f) UpColor else DownColor, strength)
 }
 
 private val Scheme = darkColorScheme(
