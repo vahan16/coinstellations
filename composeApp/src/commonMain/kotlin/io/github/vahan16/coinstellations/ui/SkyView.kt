@@ -49,8 +49,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-private const val GOLDEN_ANGLE = 2.399963f // radians, ~137.5°
-private const val LAYOUT_R = 0.47f          // galaxy radius as fraction of min dimension
+private const val LAYOUT_R = 0.60f          // scatter radius as fraction of min dimension
 private const val AUTO_SPIN = 0.05f         // idle rotation, radians/sec
 private const val MIN_SCALE = 0.35f
 private const val MAX_SCALE = 4f
@@ -302,15 +301,14 @@ private fun buildStars(coins: List<Coin>, tf: Timeframe, size: Size): List<Star>
     val maxMc = coins.maxOf { it.marketCap ?: 1.0 }.coerceAtLeast(1.0)
     val maxR = minDim * 0.052f
     val minR = minDim * 0.009f
-    val n = coins.size
     return coins.mapIndexed { i, coin ->
         val mcNorm = sqrt(((coin.marketCap ?: 1.0) / maxMc).toFloat()).coerceIn(0f, 1f)
         val change = coin.changeFor(tf) ?: 0.0
         val rnd = Random(coin.id.hashCode().toLong())
         Star(
             coin = coin,
-            ang = i * GOLDEN_ANGLE,
-            radFrac = sqrt(i.toFloat() / n),
+            ang = rnd.nextFloat() * 6.2832f,                  // random angle
+            radFrac = sqrt(rnd.nextFloat()),                  // area-uniform random radius
             radiusPx = (minR + (maxR - minR) * mcNorm),
             color = changeColor(change),
             twinkleSpeed = 0.6f + min(3.0, abs(change) / 3.0).toFloat(),
