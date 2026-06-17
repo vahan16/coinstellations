@@ -49,7 +49,7 @@ class CoinStatsApi(
     fun close() = client.close()
 
     companion object {
-        const val BASE = "https://openapiv1.coinstats.app"
+        const val BASE = "https://api.coinstats.app"
 
         val json = Json {
             ignoreUnknownKeys = true
