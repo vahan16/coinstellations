@@ -28,7 +28,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="Coinstellations animated — twinkling stars, parallax tilt and a shooting star" width="82%"/>
+  <img src="docs/demo.gif?v=2" alt="Coinstellations animated — twinkling stars, parallax tilt and a shooting star" width="82%"/>
 </p>
 
 ---
@@ -58,7 +58,7 @@
 
 | Desktop | Mobile |
 |:--:|:--:|
-| <img src="docs/hero.png" alt="Coinstellations on desktop" width="440"/> | <img src="docs/mobile.png" alt="Coinstellations on mobile" width="200"/> |
+| <img src="docs/hero.png?v=2" alt="Coinstellations on desktop" width="440"/> | <img src="docs/mobile.png?v=2" alt="Coinstellations on mobile" width="200"/> |
 
 ## 🛰️ How market data becomes a sky
 
