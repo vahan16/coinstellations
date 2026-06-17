@@ -46,9 +46,9 @@
 
 ## ✨ What it does
 
-- **A night sky of the market.** The top coins are laid out as a golden-angle galaxy — the biggest market caps sit near the centre as the brightest stars.
+- **A night sky of the market.** The top ~100 coins scatter across the sky as stars — the biggest market caps burn brightest, and the scatter reshuffles on every launch.
 - **Live, hand-drawn animation.** Stars twinkle, drift and link into constellations on a Compose `Canvas` driven by a `withFrameNanos` clock — no images, no chart library.
-- **Grab, spin & zoom.** Drag to rotate the whole galaxy; scroll, pinch, or tap `＋` / `－` to zoom — all eased smoothly (no jerky lock-step). Hover/move tilts it in 3D (near, large-cap stars parallax more) and flares the star under your pointer. Idle, it spins and drifts on its own.
+- **Grab, spin & zoom.** Drag to rotate the whole sky; scroll, pinch, or tap `＋` / `－` to zoom — all eased smoothly (no jerky lock-step). Zoom in and **more coin names fade in**. Hover/move tilts it in 3D (near, large-cap stars parallax more) and flares the star under your pointer. Idle, it spins and drifts on its own.
 - **Shooting stars for big movers.** The most volatile coins streak across the sky.
 - **Tap any star** for a detail sheet: price, 1h / 24h / 7d change, market cap, volume, supply, a price **sparkline** (24h → all-time) and project links.
 - **Timeframe toggle (1h / 24h / 7d)** instantly re-colours and re-sizes the whole sky, and the header shows the market "weather" (the average move).
@@ -68,7 +68,7 @@
 | 3D parallax depth | Market cap — big caps sit "nearer" and shift more as you tilt |
 | Colour (green → red) | Price change for the selected timeframe |
 | Twinkle speed | Volatility (absolute price change) |
-| Position | Golden-angle spiral by market-cap rank |
+| Position | Random scatter, reshuffled each launch |
 | Constellation lines | Nearest-neighbour links between stars |
 | Shooting stars | Largest absolute movers |
 

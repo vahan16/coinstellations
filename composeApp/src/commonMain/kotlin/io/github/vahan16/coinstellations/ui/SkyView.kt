@@ -66,7 +66,6 @@ private class Star(
     val twinkleSpeed: Float,
     val twinklePhase: Float,
     val depth: Float,        // 0 (far) .. 1 (near) — parallax weight
-    val major: Boolean,
 )
 
 private class BgStar(val nx: Float, val ny: Float, val r: Float, val baseAlpha: Float, val speed: Float, val phase: Float, val depth: Float)
@@ -104,8 +103,9 @@ fun SkyView(
     val sky = remember { Sky() }
 
     val bgStars = remember { buildBackgroundStars(count = 170) }
-    val stars = remember(coins, timeframe, sizePx) {
-        if (sizePx.minDimension <= 0f) emptyList() else buildStars(coins, timeframe, sizePx)
+    val sessionSeed = remember { Random.nextInt() } // fresh scatter on every launch
+    val stars = remember(coins, timeframe, sizePx, sessionSeed) {
+        if (sizePx.minDimension <= 0f) emptyList() else buildStars(coins, timeframe, sizePx, sessionSeed)
     }
     val edges = remember(stars) { buildEdges(stars) }
     val shooting = remember { mutableListOf<Shooting>() }
@@ -260,8 +260,15 @@ fun SkyView(
             drawCircle(star.color.copy(alpha = (0.85f * tw + 0.15f).coerceIn(0f, 1f)), rad, p)
             drawCircle(Color.White.copy(alpha = 0.45f * tw), rad * 0.42f, p)
 
-            if (star.major) {
-                val layout = textMeasurer.measure(star.coin.symbol, style = TextStyle(color = OnSurface.copy(alpha = 0.82f), fontSize = 11.sp, fontWeight = FontWeight.Medium))
+            // Reveal the coin's symbol once the star is big enough on screen — so
+            // zooming in fades in more names (BTC/ETH show even at the default zoom).
+            val labelThreshold = minDim * 0.016f
+            if (rad >= labelThreshold) {
+                val labelAlpha = (((rad / labelThreshold) - 1f) * 2.5f).coerceIn(0f, 1f) * 0.85f
+                val layout = textMeasurer.measure(
+                    star.coin.symbol,
+                    style = TextStyle(color = OnSurface.copy(alpha = labelAlpha), fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                )
                 drawText(layout, topLeft = Offset(p.x - layout.size.width / 2f, p.y + rad + 3.dp.toPx()))
             }
         }
@@ -295,7 +302,7 @@ private fun ZoomButton(label: String, onClick: () -> Unit) {
 
 // --- layout & helpers (pure) ---
 
-private fun buildStars(coins: List<Coin>, tf: Timeframe, size: Size): List<Star> {
+private fun buildStars(coins: List<Coin>, tf: Timeframe, size: Size, seed: Int): List<Star> {
     if (coins.isEmpty()) return emptyList()
     val minDim = size.minDimension
     val maxMc = coins.maxOf { it.marketCap ?: 1.0 }.coerceAtLeast(1.0)
@@ -304,7 +311,7 @@ private fun buildStars(coins: List<Coin>, tf: Timeframe, size: Size): List<Star>
     return coins.mapIndexed { i, coin ->
         val mcNorm = sqrt(((coin.marketCap ?: 1.0) / maxMc).toFloat()).coerceIn(0f, 1f)
         val change = coin.changeFor(tf) ?: 0.0
-        val rnd = Random(coin.id.hashCode().toLong())
+        val rnd = Random((coin.id.hashCode().toLong() + i * 31L) xor (seed.toLong() shl 21))
         Star(
             coin = coin,
             ang = rnd.nextFloat() * 6.2832f,                  // random angle
@@ -314,7 +321,6 @@ private fun buildStars(coins: List<Coin>, tf: Timeframe, size: Size): List<Star>
             twinkleSpeed = 0.6f + min(3.0, abs(change) / 3.0).toFloat(),
             twinklePhase = rnd.nextFloat() * 6.2832f,
             depth = 0.3f + 0.7f * mcNorm,
-            major = i < 8,
         )
     }
 }
